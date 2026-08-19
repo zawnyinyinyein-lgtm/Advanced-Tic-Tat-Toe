@@ -1236,6 +1236,37 @@
     return location.origin + location.pathname + '?room=' + roomCode;
   }
 
+  // STUN handles most home/mobile networks. Some networks (strict corporate
+  // firewalls, certain mobile carriers) block direct P2P entirely, so a TURN
+  // relay is included as a fallback path for the connection to route through.
+  const PEER_CONFIG = {
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:openrelay.metered.ca:80' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ]
+    }
+  };
+
+  const CONNECT_TIMEOUT_MS = 20000;
+  let connectTimeoutId = null;
+
+  function armConnectTimeout(){
+    clearConnectTimeout();
+    connectTimeoutId = setTimeout(() => {
+      if (!conn || !conn.open) {
+        showRemoteError("Still can't connect. This is usually a restrictive network on one side. Try switching from Wi-Fi to mobile data (or vice versa) on one device, then try the link again.");
+      }
+    }, CONNECT_TIMEOUT_MS);
+  }
+
+  function clearConnectTimeout(){
+    if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+  }
+
   function sendMessage(msg){
     if (conn && conn.open) {
       try { conn.send(msg); } catch (err) { /* ignore */ }
@@ -1244,6 +1275,7 @@
 
   function setupConnectionHandlers(){
     conn.on('open', () => {
+      clearConnectTimeout();
       resetRemoteStatusUI();
       remoteStatusText.textContent = 'Connected — syncing…';
       sendMessage({ type: 'hello', name: localName });
@@ -1262,7 +1294,7 @@
     remoteStatusText.textContent = 'Connecting to signaling server…';
 
     const roomCode = generateRoomCode();
-    peer = new Peer(roomCode);
+    peer = new Peer(roomCode, PEER_CONFIG);
 
     peer.on('open', (id) => {
       inviteLinkInput.value = buildInviteLink(id);
@@ -1272,6 +1304,7 @@
 
     peer.on('connection', (c) => {
       conn = c;
+      armConnectTimeout();
       setupConnectionHandlers();
     });
 
@@ -1288,14 +1321,16 @@
     resetRemoteStatusUI();
     remoteStatusText.textContent = 'Connecting…';
 
-    peer = new Peer();
+    peer = new Peer(PEER_CONFIG);
 
     peer.on('open', () => {
       conn = peer.connect(roomCode, { reliable: true });
+      armConnectTimeout();
       setupConnectionHandlers();
     });
 
     peer.on('error', (err) => {
+      clearConnectTimeout();
       if (err.type === 'peer-unavailable') {
         showRemoteError("That invite link isn't active anymore. Ask your friend to send a new one.");
       } else {
@@ -1337,6 +1372,7 @@
   function beginRemoteGame(){
     if (remoteGameStarted) return;
     remoteGameStarted = true;
+    clearConnectTimeout();
     localColor = isHost ? 'A' : 'B';
     botColor = null;
     resetCore();
@@ -1361,6 +1397,7 @@
   }
 
   function teardownConnection(){
+    clearConnectTimeout();
     if (conn) { try { conn.close(); } catch (err) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (err) {} peer = null; }
     remoteGameStarted = false;
