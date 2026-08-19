@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Three Stones</title>
+<title>Advanced Tic Tat Toe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -532,7 +532,7 @@
 
 <div class="stage">
   <header>
-    <h1>Three <span>Stones</span></h1>
+    <h1>Advanced <span>Tic Tat Toe</span></h1>
     <p class="subtitle">Place. Then slide. First straight line wins.</p>
   </header>
 
@@ -734,7 +734,7 @@
 
   if (invitedRoom) {
     selectMode('remote');
-    [...modeOptions.children].forEach(b => b.disabled = true, b.style.opacity = 0.4);
+    [...modeOptions.children].forEach(b => { b.disabled = true; b.style.opacity = 0.4; });
     invitedNote.classList.add('show');
     remoteExplainer.textContent = "You're joining as the guest and will play Indigo.";
     remoteActionBtn.textContent = 'Join Game';
