@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Three Stones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root{
+    --bg: #1b2320;
+    --panel: #232f29;
+    --board: #283a32;
+    --board-line: #0e1512;
+    --brass: #c9a24b;
+    --brass-dim: #7d6a3c;
+    --ivory: #ece5d2;
+    --ivory-shadow: #9c9481;
+    --indigo: #4a6a8a;
+    --indigo-shadow: #2c4258;
+    --ink: #e8e2d0;
+    --ink-dim: #97a199;
+    --danger: #c06a4f;
+    --success: #7fae7a;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% -10%, #2a362f 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'JetBrains Mono', monospace;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+  }
+
+  .stage{
+    width:100%;
+    max-width:520px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+  }
+
+  header{
+    text-align:center;
+  }
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:700;
+    font-size:clamp(2.1rem, 6vw, 2.8rem);
+    letter-spacing:0.01em;
+    margin:0;
+    color:var(--ink);
+  }
+
+  h1 span{
+    color:var(--brass);
+    font-style:italic;
+    font-weight:600;
+  }
+
+  .subtitle{
+    margin:6px 0 0;
+    font-size:0.78rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+
+  /* ---------- Shared panel behavior ---------- */
+
+  .app-panel{
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+    width:100%;
+  }
+
+  .app-panel.show{
+    display:flex;
+  }
+
+  /* ---------- Setup / remote-status card ---------- */
+
+  .card{
+    width:100%;
+    max-width:400px;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+    background:var(--panel);
+    border-radius:16px;
+    padding:24px 22px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.4), 0 12px 30px rgba(0,0,0,0.35);
+  }
+
+  .setup-group{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+  }
+
+  .setup-label{
+    margin:0;
+    font-size:0.68rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+
+  .option-row{
+    display:flex;
+    gap:8px;
+  }
+
+  .opt-btn{
+    flex:1;
+    background:rgba(0,0,0,0.18);
+    border:1px solid transparent;
+    color:var(--ink-dim);
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.74rem;
+    letter-spacing:0.03em;
+    padding:10px 8px;
+    border-radius:9px;
+    cursor:pointer;
+    transition: all 0.18s ease;
+  }
+
+  .opt-btn:hover{
+    color:var(--ink);
+    border-color: var(--brass-dim);
+  }
+
+  .opt-btn.active{
+    background:linear-gradient(160deg, #3a4d42, #283830);
+    color:var(--brass);
+    border-color: var(--brass);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .conditional-group{
+    display:none;
+  }
+
+  .conditional-group.show{
+    display:flex;
+  }
+
+  .name-input{
+    width:100%;
+    background:rgba(0,0,0,0.22);
+    border:1px solid var(--brass-dim);
+    color:var(--ink);
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.85rem;
+    padding:10px 12px;
+    border-radius:9px;
+    outline:none;
+  }
+
+  .name-input:focus{
+    border-color: var(--brass);
+  }
+
+  .invited-note{
+    display:none;
+    font-size:0.72rem;
+    color:var(--brass);
+    background:rgba(201,162,75,0.1);
+    border:1px solid var(--brass-dim);
+    padding:8px 10px;
+    border-radius:8px;
+    text-align:center;
+  }
+
+  .invited-note.show{
+    display:block;
+  }
+
+  .start-btn{
+    margin-top:4px;
+    background:linear-gradient(160deg, var(--brass), #a9803a);
+    border:none;
+    color:#1b2320;
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1rem;
+    padding:12px 18px;
+    border-radius:11px;
+    cursor:pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 12px rgba(201,162,75,0.25);
+  }
+
+  .start-btn:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(201,162,75,0.35);
+  }
+
+  .start-btn:disabled{
+    opacity:0.5;
+    cursor:not-allowed;
+    transform:none;
+  }
+
+  /* ---------- Remote status panel ---------- */
+
+  .status-line{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:0.85rem;
+    color:var(--ink);
+  }
+
+  .status-spinner{
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    background: var(--brass);
+    flex-shrink:0;
+    animation: think-pulse 0.9s ease-in-out infinite;
+  }
+
+  .invite-link-row{
+    display:none;
+    gap:8px;
+  }
+
+  .invite-link-row.show{
+    display:flex;
+  }
+
+  .invite-link-row input{
+    flex:1;
+    background:rgba(0,0,0,0.22);
+    border:1px solid var(--brass-dim);
+    color:var(--ink-dim);
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    padding:9px 10px;
+    border-radius:8px;
+    outline:none;
+  }
+
+  .copy-btn{
+    background:transparent;
+    border:1px solid var(--brass-dim);
+    color:var(--brass);
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.7rem;
+    letter-spacing:0.05em;
+    padding:0 14px;
+    border-radius:8px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+
+  .copy-btn:hover{
+    background:rgba(201,162,75,0.1);
+  }
+
+  .error-text{
+    display:none;
+    font-size:0.75rem;
+    color:var(--danger);
+    text-align:center;
+  }
+
+  .error-text.show{
+    display:block;
+  }
+
+  /* ---------- Game panel ---------- */
+
+  .phase-track{
+    display:flex;
+    gap:0;
+    width:100%;
+    max-width:420px;
+    background:var(--panel);
+    border-radius:10px;
+    padding:5px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  .phase-step{
+    flex:1;
+    text-align:center;
+    padding:9px 6px;
+    border-radius:7px;
+    font-size:0.68rem;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    transition:all 0.35s ease;
+  }
+
+  .phase-step b{
+    display:block;
+    font-family:'Fraunces', serif;
+    font-size:0.95rem;
+    font-weight:600;
+    letter-spacing:0;
+    text-transform:none;
+    margin-bottom:1px;
+  }
+
+  .phase-step.active{
+    background:linear-gradient(160deg, #33453b, #263630);
+    color:var(--brass);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  }
+
+  .status-bar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--panel);
+    padding:10px 18px;
+    border-radius:999px;
+    font-size:0.82rem;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.35);
+    min-height:20px;
+  }
+
+  .turn-dot{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    flex-shrink:0;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.25) inset;
+  }
+
+  .turn-dot.ivory{ background: radial-gradient(circle at 35% 30%, #fff, var(--ivory) 55%, var(--ivory-shadow)); }
+  .turn-dot.indigo{ background: radial-gradient(circle at 35% 30%, #8fb4d6, var(--indigo) 55%, var(--indigo-shadow)); }
+
+  .turn-dot.thinking{
+    animation: think-pulse 0.9s ease-in-out infinite;
+  }
+
+  @keyframes think-pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.35; }
+  }
+
+  .board-wrap{
+    position:relative;
+    width:min(94vw, 400px);
+    aspect-ratio:1/1;
+  }
+
+  .board{
+    position:relative;
+    width:100%;
+    height:100%;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+    gap:8px;
+    background:var(--board-line);
+    border-radius:14px;
+    padding:8px;
+    box-shadow:
+      0 12px 30px rgba(0,0,0,0.45),
+      inset 0 0 0 1px rgba(201,162,75,0.15);
+    transition: opacity 0.2s ease;
+  }
+
+  .board.locked{
+    opacity:0.75;
+    pointer-events:none;
+  }
+
+  .cell{
+    position:relative;
+    background:
+      radial-gradient(circle at 30% 25%, #33473d, var(--board) 70%);
+    border-radius:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.35), inset 0 -1px 2px rgba(255,255,255,0.03);
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .cell:hover{
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.35), 0 0 0 2px rgba(201,162,75,0.25);
+  }
+
+  .cell.valid-target::after{
+    content:'';
+    position:absolute;
+    width:34%;
+    height:34%;
+    border-radius:50%;
+    border:2px dashed var(--brass);
+    opacity:0.85;
+    animation: pulse-ring 1.6s ease-in-out infinite;
+  }
+
+  @keyframes pulse-ring{
+    0%,100%{ transform:scale(0.9); opacity:0.5; }
+    50%{ transform:scale(1.05); opacity:0.9; }
+  }
+
+  .stone{
+    width:72%;
+    height:72%;
+    border-radius:50%;
+    position:relative;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .stone.ivory{
+    background: radial-gradient(circle at 32% 28%, #fffdf6, var(--ivory) 50%, var(--ivory-shadow) 100%);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(120,110,85,0.35);
+  }
+
+  .stone.indigo{
+    background: radial-gradient(circle at 32% 28%, #a7c6e3, var(--indigo) 50%, var(--indigo-shadow) 100%);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(20,30,45,0.5);
+  }
+
+  .stone.selectable{
+    cursor:pointer;
+  }
+
+  .stone.selectable:hover{
+    transform: scale(1.06);
+  }
+
+  .stone.selected{
+    transform: scale(1.1);
+    box-shadow: 0 0 0 3px var(--brass), 0 4px 10px rgba(0,0,0,0.5);
+  }
+
+  .stone.just-placed{
+    animation: drop-in 0.3s ease-out;
+  }
+
+  @keyframes drop-in{
+    0%{ transform: scale(0.3); opacity:0; }
+    100%{ transform: scale(1); opacity:1; }
+  }
+
+  svg.win-line{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    overflow:visible;
+  }
+
+  svg.win-line line{
+    stroke: var(--brass);
+    stroke-width:5;
+    stroke-linecap:round;
+    filter: drop-shadow(0 0 6px rgba(201,162,75,0.8));
+    stroke-dasharray: 420;
+    stroke-dashoffset: 420;
+    animation: draw-line 0.55s ease forwards;
+  }
+
+  @keyframes draw-line{
+    to{ stroke-dashoffset:0; }
+  }
+
+  .footer-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .hint{
+    font-size:0.72rem;
+    color:var(--ink-dim);
+    text-align:center;
+    max-width:380px;
+    line-height:1.5;
+  }
+
+  .hint.warn{
+    color: var(--danger);
+  }
+
+  button.reset, button.change-setup{
+    background:transparent;
+    border:1px solid var(--brass-dim);
+    color:var(--brass);
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    padding:9px 18px;
+    border-radius:999px;
+    cursor:pointer;
+    transition: all 0.2s ease;
+  }
+
+  button.reset:hover, button.change-setup:hover{
+    background:rgba(201,162,75,0.1);
+    border-color:var(--brass);
+  }
+
+  .win-banner{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.2rem;
+    color:var(--brass);
+    text-align:center;
+    min-height:1.6em;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <header>
+    <h1>Three <span>Stones</span></h1>
+    <p class="subtitle">Place. Then slide. First straight line wins.</p>
+  </header>
+
+  <!-- SETUP PANEL -->
+  <div class="app-panel show" id="setup-panel">
+    <div class="card">
+      <div class="setup-group">
+        <p class="setup-label">Opponent</p>
+        <div class="option-row" id="mode-options">
+          <button class="opt-btn active" data-mode="pvp">Same Device</button>
+          <button class="opt-btn" data-mode="bot">Vs Bot</button>
+          <button class="opt-btn" data-mode="remote">Invite a Friend</button>
+        </div>
+      </div>
+
+      <div class="setup-group conditional-group" id="difficulty-group">
+        <p class="setup-label">Bot difficulty</p>
+        <div class="option-row" id="difficulty-options">
+          <button class="opt-btn" data-diff="easy">Easy</button>
+          <button class="opt-btn active" data-diff="medium">Medium</button>
+          <button class="opt-btn" data-diff="hard">Hard</button>
+        </div>
+      </div>
+
+      <div class="setup-group conditional-group" id="color-group">
+        <p class="setup-label">You play as</p>
+        <div class="option-row" id="color-options">
+          <button class="opt-btn active" data-color="A">Ivory (first)</button>
+          <button class="opt-btn" data-color="B">Indigo (second)</button>
+        </div>
+      </div>
+
+      <div class="setup-group conditional-group" id="remote-group">
+        <p class="invited-note" id="invited-note">You've been invited to a game! Enter your name and join.</p>
+        <p class="setup-label">Your name</p>
+        <input type="text" class="name-input" id="player-name-input" placeholder="Enter your name" maxlength="18">
+        <p class="setup-label" id="remote-explainer">The host plays Ivory and moves first. You'll get a link to send your friend.</p>
+      </div>
+
+      <button class="start-btn" id="start-btn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- REMOTE STATUS PANEL (connecting / waiting for peer) -->
+  <div class="app-panel" id="remote-status-panel">
+    <div class="card">
+      <div class="status-line">
+        <div class="status-spinner" id="remote-spinner"></div>
+        <span id="remote-status-text">Connecting…</span>
+      </div>
+
+      <div class="invite-link-row" id="invite-link-row">
+        <input type="text" id="invite-link-input" readonly>
+        <button class="copy-btn" id="copy-link-btn">Copy</button>
+      </div>
+
+      <p class="error-text" id="remote-error-text"></p>
+
+      <button class="change-setup" id="remote-cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- GAME PANEL -->
+  <div class="app-panel" id="game-panel">
+    <div class="phase-track">
+      <div class="phase-step" id="step-placement">
+        <b>I</b> Placement
+      </div>
+      <div class="phase-step" id="step-movement">
+        <b>II</b> Movement
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="turn-dot ivory" id="turn-dot"></div>
+      <span id="status-text">Ivory places a stone — 3 remaining</span>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="win-banner" id="win-banner"></div>
+
+    <div class="footer-row">
+      <button class="reset" id="reset-btn">Reset Board</button>
+      <button class="change-setup" id="change-setup-btn">Change Setup</button>
+    </div>
+
+    <p class="hint" id="hint-text">Each player has 3 stones. Place all 3 first, then on your turn slide any one stone to any open cell on the board.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  const MOVE_LIMIT = 60; // safety net: declare a stalemate if movement phase runs this long without a winner
+
+  // ---------- DOM refs ----------
+  const setupPanel = document.getElementById('setup-panel');
+  const remoteStatusPanel = document.getElementById('remote-status-panel');
+  const gamePanel = document.getElementById('game-panel');
+
+  const modeOptions = document.getElementById('mode-options');
+  const difficultyGroup = document.getElementById('difficulty-group');
+  const difficultyOptions = document.getElementById('difficulty-options');
+  const colorGroup = document.getElementById('color-group');
+  const colorOptions = document.getElementById('color-options');
+  const remoteGroup = document.getElementById('remote-group');
+  const nameInput = document.getElementById('player-name-input');
+  const invitedNote = document.getElementById('invited-note');
+  const remoteExplainer = document.getElementById('remote-explainer');
+  const startBtn = document.getElementById('start-btn');
+
+  const remoteStatusText = document.getElementById('remote-status-text');
+  const inviteLinkRow = document.getElementById('invite-link-row');
+  const inviteLinkInput = document.getElementById('invite-link-input');
+  const copyLinkBtn = document.getElementById('copy-link-btn');
+  const remoteErrorText = document.getElementById('remote-error-text');
+  const remoteCancelBtn = document.getElementById('remote-cancel-btn');
+
+  const boardEl = document.getElementById('board');
+  const statusText = document.getElementById('status-text');
+  const turnDot = document.getElementById('turn-dot');
+  const hintText = document.getElementById('hint-text');
+  const winBanner = document.getElementById('win-banner');
+  const stepPlacement = document.getElementById('step-placement');
+  const stepMovement = document.getElementById('step-movement');
+  const resetBtn = document.getElementById('reset-btn');
+  const changeSetupBtn = document.getElementById('change-setup-btn');
+
+  const PLAYERS = {
+    A: { name: 'Ivory', cls: 'ivory' },
+    B: { name: 'Indigo', cls: 'indigo' }
+  };
+
+  function showPanel(name){
+    setupPanel.classList.toggle('show', name === 'setup');
+    remoteStatusPanel.classList.toggle('show', name === 'remoteStatus');
+    gamePanel.classList.toggle('show', name === 'game');
+  }
+
+  // =========================================================
+  //  SETUP UI
+  // =========================================================
+
+  let settings = { mode: 'pvp', difficulty: 'medium', humanColor: 'A' };
+  const urlParams = new URLSearchParams(location.search);
+  const invitedRoom = urlParams.get('room');
+
+  function selectMode(mode){
+    settings.mode = mode;
+    [...modeOptions.children].forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    difficultyGroup.classList.toggle('show', mode === 'bot');
+    colorGroup.classList.toggle('show', mode === 'bot');
+    remoteGroup.classList.toggle('show', mode === 'remote');
+    startBtn.style.display = (mode === 'remote') ? 'none' : 'block';
+  }
+
+  modeOptions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.opt-btn');
+    if (!btn || invitedRoom) return; // locked to remote if arriving via invite link
+    selectMode(btn.dataset.mode);
+  });
+
+  difficultyOptions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.opt-btn');
+    if (!btn) return;
+    [...difficultyOptions.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    settings.difficulty = btn.dataset.diff;
+  });
+
+  colorOptions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.opt-btn');
+    if (!btn) return;
+    [...colorOptions.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    settings.humanColor = btn.dataset.color;
+  });
+
+  startBtn.addEventListener('click', () => {
+    showPanel('game');
+    startLocalGame();
+  });
+
+  // Remote: the setup panel's role changes based on whether we're hosting or joining.
+  // We repurpose the Start Game button area with a dedicated remote action button.
+  const remoteActionBtn = document.createElement('button');
+  remoteActionBtn.className = 'start-btn';
+  remoteActionBtn.id = 'remote-action-btn';
+  remoteActionBtn.style.display = 'none';
+  startBtn.insertAdjacentElement('afterend', remoteActionBtn);
+
+  if (invitedRoom) {
+    selectMode('remote');
+    [...modeOptions.children].forEach(b => b.disabled = true, b.style.opacity = 0.4);
+    invitedNote.classList.add('show');
+    remoteExplainer.textContent = "You're joining as the guest and will play Indigo.";
+    remoteActionBtn.textContent = 'Join Game';
+    remoteActionBtn.style.display = 'block';
+    remoteActionBtn.addEventListener('click', () => joinRemoteGame(invitedRoom));
+  } else {
+    remoteActionBtn.textContent = 'Create Invite Link';
+    remoteActionBtn.addEventListener('click', () => hostRemoteGame());
+  }
+
+  modeOptions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.opt-btn');
+    if (!btn) return;
+    remoteActionBtn.style.display = (settings.mode === 'remote') ? 'block' : 'none';
+  });
+
+  remoteCancelBtn.addEventListener('click', () => {
+    teardownConnection();
+    resetRemoteStatusUI();
+    showPanel('setup');
+  });
+
+  changeSetupBtn.addEventListener('click', () => {
+    teardownConnection();
+    resetRemoteStatusUI();
+    showPanel('setup');
+  });
+
+  copyLinkBtn.addEventListener('click', () => {
+    const link = inviteLinkInput.value;
+    const done = () => {
+      copyLinkBtn.textContent = 'Copied!';
+      setTimeout(() => { copyLinkBtn.textContent = 'Copy'; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done).catch(() => {
+        inviteLinkInput.select();
+        try { document.execCommand('copy'); done(); } catch (err) {}
+      });
+    } else {
+      inviteLinkInput.select();
+      try { document.execCommand('copy'); done(); } catch (err) {}
+    }
+  });
+
+  function resetRemoteStatusUI(){
+    remoteStatusText.textContent = 'Connecting…';
+    inviteLinkRow.classList.remove('show');
+    remoteErrorText.classList.remove('show');
+    remoteErrorText.textContent = '';
+  }
+
+  function showRemoteError(msg){
+    remoteErrorText.textContent = msg;
+    remoteErrorText.classList.add('show');
+  }
+
+  // =========================================================
+  //  GAME STATE (shared by all modes)
+  // =========================================================
+
+  let cells;           // array of 9: null or player letter 'A'/'B'
+  let current;
+  let placedCount;
+  let phase;
+  let selected;
+  let gameOver;
+  let movementMoveCount;
+  let botColor;
+
+  // remote-specific
+  let peer = null;
+  let conn = null;
+  let isHost = false;
+  let localColor = null;
+  let localName = '';
+  let remoteName = '';
+  let remoteGameStarted = false;
+
+  function resetCore(){
+    cells = Array(9).fill(null);
+    current = 'A';
+    placedCount = { A: 0, B: 0 };
+    phase = 'placement';
+    selected = null;
+    gameOver = false;
+    movementMoveCount = 0;
+    winBanner.textContent = '';
+    hintText.classList.remove('warn');
+    hintText.textContent = "Each player has 3 stones. Place all 3 first, then on your turn slide any one stone to any open cell on the board.";
+  }
+
+  function startLocalGame(){
+    botColor = settings.mode === 'bot' ? (settings.humanColor === 'A' ? 'B' : 'A') : null;
+    resetCore();
+    render();
+    updateStatus();
+    maybeTriggerBot();
+  }
+
+  function isLocalTurn(){
+    if (settings.mode === 'bot') return current !== botColor;
+    if (settings.mode === 'remote') return current === localColor;
+    return true; // same-device pass-and-play: whoever's turn it is taps the board
+  }
+
+  function render(){
+    boardEl.innerHTML = '';
+    boardEl.classList.toggle('locked', !gameOver && !isLocalTurn());
+
+    cells.forEach((player, i) => {
+      const cellEl = document.createElement('div');
+      cellEl.className = 'cell';
+      cellEl.dataset.index = i;
+
+      if (phase === 'movement' && selected !== null && player === null) {
+        cellEl.classList.add('valid-target');
+      }
+
+      if (player) {
+        const stone = document.createElement('div');
+        stone.className = 'stone ' + PLAYERS[player].cls;
+        if (phase === 'movement' && !gameOver && player === current && isLocalTurn()) {
+          stone.classList.add('selectable');
+        }
+        if (selected === i) {
+          stone.classList.add('selected');
+        }
+        cellEl.appendChild(stone);
+      }
+
+      cellEl.addEventListener('click', () => onCellClick(i));
+      boardEl.appendChild(cellEl);
+    });
+  }
+
+  function onCellClick(i){
+    if (gameOver || !isLocalTurn()) return;
+
+    if (phase === 'placement') {
+      tryPlacement(i, current, true);
+    } else {
+      handleMovementClick(i);
+    }
+  }
+
+  function handleMovementClick(i){
+    const clicked = cells[i];
+
+    if (clicked && clicked === current) {
+      selected = (selected === i) ? null : i;
+      render();
+      updateStatus();
+      return;
+    }
+
+    if (clicked === null && selected !== null) {
+      tryMovement(selected, i, current, true);
+    }
+  }
+
+  // ---------- Core move application (used by human clicks, bot, and remote sync) ----------
+
+  function tryPlacement(index, player, broadcast){
+    if (cells[index] !== null) return false;
+    cells[index] = player;
+    placedCount[player]++;
+
+    render();
+    highlightNew(index);
+
+    if (settings.mode === 'remote' && broadcast) {
+      sendMessage({ type: 'move', move: { type: 'place', index } });
+    }
+
+    if (checkWin(player)) { endGame(player); return true; }
+
+    if (placedCount.A === 3 && placedCount.B === 3) {
+      phase = 'movement';
+    }
+
+    advanceTurn();
+    return true;
+  }
+
+  function tryMovement(fromIndex, toIndex, player, broadcast){
+    if (cells[toIndex] !== null || cells[fromIndex] !== player) return false;
+
+    cells[toIndex] = player;
+    cells[fromIndex] = null;
+    selected = null;
+    movementMoveCount++;
+
+    render();
+    highlightNew(toIndex);
+
+    if (settings.mode === 'remote' && broadcast) {
+      sendMessage({ type: 'move', move: { type: 'move', from: fromIndex, to: toIndex } });
+    }
+
+    if (checkWin(player)) { endGame(player); return true; }
+
+    if (movementMoveCount >= MOVE_LIMIT) { endStalemate(); return true; }
+
+    advanceTurn();
+    return true;
+  }
+
+  function highlightNew(i){
+    const stoneEl = boardEl.children[i].querySelector('.stone');
+    if (stoneEl) stoneEl.classList.add('just-placed');
+  }
+
+  function advanceTurn(){
+    current = current === 'A' ? 'B' : 'A';
+    updateStatus();
+    render();
+    maybeTriggerBot();
+  }
+
+  function checkWin(player){
+    return LINES.some(line => line.every(idx => cells[idx] === player));
+  }
+
+  function getWinLine(player){
+    return LINES.find(line => line.every(idx => cells[idx] === player)) || null;
+  }
+
+  function displayNameFor(color){
+    if (settings.mode !== 'remote') return PLAYERS[color].name;
+    if (color === localColor) return 'You';
+    return remoteName || PLAYERS[color].name;
+  }
+
+  function endGame(player){
+    gameOver = true;
+    render();
+    const line = getWinLine(player);
+    drawWinLine(line);
+    let label;
+    if (settings.mode === 'bot' && player === botColor) label = PLAYERS[player].name + ' (Bot)';
+    else if (settings.mode === 'remote') label = displayNameFor(player) + ' (' + PLAYERS[player].name + ')';
+    else label = PLAYERS[player].name;
+    winBanner.textContent = label + ' wins the line.';
+    statusText.textContent = label + ' connected three in a row.';
+    turnDot.className = 'turn-dot ' + PLAYERS[player].cls;
+    hintText.textContent = 'Reset the board to play again.';
+  }
+
+  function endStalemate(){
+    gameOver = true;
+    render();
+    winBanner.textContent = 'Stalemate — no line formed.';
+    statusText.textContent = 'Move limit reached without a winner.';
+    hintText.textContent = 'Reset the board to play again.';
+  }
+
+  function drawWinLine(line){
+    const wrap = document.querySelector('.board-wrap');
+    const boardRect = boardEl.getBoundingClientRect();
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'win-line');
+    svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
+
+    const [a, , c] = line;
+    const cellA = boardEl.children[a].getBoundingClientRect();
+    const cellC = boardEl.children[c].getBoundingClientRect();
+
+    const x1 = cellA.left - boardRect.left + cellA.width / 2;
+    const y1 = cellA.top - boardRect.top + cellA.height / 2;
+    const x2 = cellC.left - boardRect.left + cellC.width / 2;
+    const y2 = cellC.top - boardRect.top + cellC.height / 2;
+
+    const lineEl = document.createElementNS(svgNS, 'line');
+    lineEl.setAttribute('x1', x1);
+    lineEl.setAttribute('y1', y1);
+    lineEl.setAttribute('x2', x2);
+    lineEl.setAttribute('y2', y2);
+    svg.appendChild(lineEl);
+    wrap.appendChild(svg);
+  }
+
+  function updateStatus(){
+    turnDot.className = 'turn-dot ' + PLAYERS[current].cls;
+    const locked = !gameOver && !isLocalTurn();
+    turnDot.classList.toggle('thinking', locked);
+
+    const nameLabel = displayNameFor(current) + (settings.mode === 'bot' && current === botColor ? ' (Bot)' : '');
+
+    if (phase === 'placement') {
+      stepPlacement.classList.add('active');
+      stepMovement.classList.remove('active');
+      const remaining = 3 - placedCount[current];
+      if (locked) {
+        statusText.textContent = settings.mode === 'remote' ? `Waiting for ${nameLabel} to place a stone…` : `${nameLabel} is thinking…`;
+      } else {
+        statusText.textContent = `${nameLabel} places a stone — ${remaining} remaining`;
+      }
+    } else {
+      stepPlacement.classList.remove('active');
+      stepMovement.classList.add('active');
+      if (locked) {
+        statusText.textContent = settings.mode === 'remote' ? `Waiting for ${nameLabel} to move…` : `${nameLabel} is thinking…`;
+      } else if (selected !== null) {
+        statusText.textContent = `${nameLabel} — choose where to slide`;
+      } else {
+        statusText.textContent = `${nameLabel} — select a stone to move`;
+      }
+    }
+  }
+
+  resetBtn.addEventListener('click', () => {
+    if (settings.mode === 'remote') {
+      resetCore();
+      render();
+      updateStatus();
+      sendMessage({ type: 'reset' });
+    } else {
+      startLocalGame();
+    }
+  });
+
+  // =========================================================
+  //  BOT AI
+  // =========================================================
+
+  function maybeTriggerBot(){
+    if (gameOver) return;
+    if (settings.mode !== 'bot' || current !== botColor) return;
+
+    render();
+    updateStatus();
+
+    const delay = 450 + Math.random() * 350;
+    setTimeout(runBotMove, delay);
+  }
+
+  function runBotMove(){
+    if (gameOver) return;
+    const player = botColor;
+    const opponent = player === 'A' ? 'B' : 'A';
+    const state = { cells: cells.slice(), placedCount: { A: placedCount.A, B: placedCount.B }, phase };
+
+    let move;
+    if (settings.difficulty === 'easy') move = pickEasyMove(state, player);
+    else if (settings.difficulty === 'medium') move = pickMediumMove(state, player, opponent);
+    else move = pickHardMove(state, player, opponent);
+
+    if (!move) { updateStatus(); return; }
+
+    if (move.type === 'place') tryPlacement(move.index, player, false);
+    else tryMovement(move.from, move.to, player, false);
+  }
+
+  function getLegalMoves(state, player){
+    const moves = [];
+    if (state.phase === 'placement') {
+      state.cells.forEach((c, i) => { if (c === null) moves.push({ type: 'place', index: i }); });
+    } else {
+      const own = [];
+      const empty = [];
+      state.cells.forEach((c, i) => { if (c === player) own.push(i); else if (c === null) empty.push(i); });
+      own.forEach(f => empty.forEach(t => moves.push({ type: 'move', from: f, to: t })));
+    }
+    return moves;
+  }
+
+  function applyMoveSim(state, move, player){
+    const cells2 = state.cells.slice();
+    const placedCount2 = { A: state.placedCount.A, B: state.placedCount.B };
+    let phase2 = state.phase;
+
+    if (move.type === 'place') {
+      cells2[move.index] = player;
+      placedCount2[player]++;
+      phase2 = (placedCount2.A === 3 && placedCount2.B === 3) ? 'movement' : 'placement';
+    } else {
+      cells2[move.from] = null;
+      cells2[move.to] = player;
+    }
+    return { cells: cells2, placedCount: placedCount2, phase: phase2 };
+  }
+
+  function checkWinSim(cellsArr, player){
+    return LINES.some(line => line.every(idx => cellsArr[idx] === player));
+  }
+
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function pickEasyMove(state, player){
+    const moves = getLegalMoves(state, player);
+    if (moves.length === 0) return null;
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+
+  function pickMediumMove(state, player, opponent){
+    const moves = shuffle(getLegalMoves(state, player));
+    if (moves.length === 0) return null;
+
+    for (const m of moves) {
+      const s2 = applyMoveSim(state, m, player);
+      if (checkWinSim(s2.cells, player)) return m;
+    }
+
+    const oppMoves = getLegalMoves(state, opponent);
+    const oppWinningMoves = oppMoves.filter(m => {
+      const s2 = applyMoveSim(state, m, opponent);
+      return checkWinSim(s2.cells, opponent);
+    });
+    if (oppWinningMoves.length > 0) {
+      const threatSpots = new Set(oppWinningMoves.map(m => m.type === 'place' ? m.index : m.to));
+      const blockingMove = moves.find(m => threatSpots.has(m.type === 'place' ? m.index : m.to));
+      if (blockingMove) return blockingMove;
+    }
+
+    let best = null, bestScore = -Infinity;
+    for (const m of moves) {
+      const s2 = applyMoveSim(state, m, player);
+      const score = evaluateBoard(s2.cells, player, opponent);
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
+    return best;
+  }
+
+  function pickHardMove(state, player, opponent){
+    const moves = shuffle(getLegalMoves(state, player));
+    if (moves.length === 0) return null;
+
+    for (const m of moves) {
+      const s2 = applyMoveSim(state, m, player);
+      if (checkWinSim(s2.cells, player)) return m;
+    }
+
+    const depth = state.phase === 'placement' ? 4 : 3;
+    let best = null, bestScore = -Infinity;
+
+    for (const m of moves) {
+      const s2 = applyMoveSim(state, m, player);
+      const score = minimax(s2, depth - 1, -Infinity, Infinity, opponent, player, opponent);
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
+    return best;
+  }
+
+  function minimax(state, depth, alpha, beta, toMove, botPlayer, humanPlayer){
+    if (checkWinSim(state.cells, botPlayer)) return 5000 + depth;
+    if (checkWinSim(state.cells, humanPlayer)) return -5000 - depth;
+    if (depth === 0) return evaluateBoard(state.cells, botPlayer, humanPlayer);
+
+    const moves = getLegalMoves(state, toMove);
+    if (moves.length === 0) return evaluateBoard(state.cells, botPlayer, humanPlayer);
+
+    const isMax = toMove === botPlayer;
+    let value = isMax ? -Infinity : Infinity;
+
+    for (const m of moves) {
+      const s2 = applyMoveSim(state, m, toMove);
+      const nextToMove = toMove === 'A' ? 'B' : 'A';
+      const score = minimax(s2, depth - 1, alpha, beta, nextToMove, botPlayer, humanPlayer);
+
+      if (isMax) { value = Math.max(value, score); alpha = Math.max(alpha, value); }
+      else { value = Math.min(value, score); beta = Math.min(beta, value); }
+      if (beta <= alpha) break;
+    }
+    return value;
+  }
+
+  function evaluateBoard(cellsArr, botPlayer, humanPlayer){
+    let score = 0;
+    for (const line of LINES) {
+      let botCount = 0, humanCount = 0;
+      for (const idx of line) {
+        if (cellsArr[idx] === botPlayer) botCount++;
+        else if (cellsArr[idx] === humanPlayer) humanCount++;
+      }
+      if (botCount > 0 && humanCount > 0) continue;
+      if (botCount > 0) score += Math.pow(10, botCount);
+      else if (humanCount > 0) score -= Math.pow(10, humanCount);
+    }
+    return score;
+  }
+
+  // =========================================================
+  //  REMOTE MULTIPLAYER (PeerJS, serverless P2P)
+  // =========================================================
+
+  function generateRoomCode(){
+    return 'ts-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function buildInviteLink(roomCode){
+    return location.origin + location.pathname + '?room=' + roomCode;
+  }
+
+  function sendMessage(msg){
+    if (conn && conn.open) {
+      try { conn.send(msg); } catch (err) { /* ignore */ }
+    }
+  }
+
+  function setupConnectionHandlers(){
+    conn.on('open', () => {
+      resetRemoteStatusUI();
+      remoteStatusText.textContent = 'Connected — syncing…';
+      sendMessage({ type: 'hello', name: localName });
+    });
+    conn.on('data', handleRemoteMessage);
+    conn.on('close', handleRemoteDisconnect);
+    conn.on('error', () => handleRemoteDisconnect());
+  }
+
+  function hostRemoteGame(){
+    localName = (nameInput.value || '').trim() || 'Host';
+    isHost = true;
+    remoteGameStarted = false;
+    showPanel('remoteStatus');
+    resetRemoteStatusUI();
+    remoteStatusText.textContent = 'Connecting to signaling server…';
+
+    const roomCode = generateRoomCode();
+    peer = new Peer(roomCode);
+
+    peer.on('open', (id) => {
+      inviteLinkInput.value = buildInviteLink(id);
+      inviteLinkRow.classList.add('show');
+      remoteStatusText.textContent = 'Waiting for your friend to open the link…';
+    });
+
+    peer.on('connection', (c) => {
+      conn = c;
+      setupConnectionHandlers();
+    });
+
+    peer.on('error', (err) => {
+      showRemoteError('Connection error (' + err.type + '). Try again, or check your network.');
+    });
+  }
+
+  function joinRemoteGame(roomCode){
+    localName = (nameInput.value || '').trim() || 'Guest';
+    isHost = false;
+    remoteGameStarted = false;
+    showPanel('remoteStatus');
+    resetRemoteStatusUI();
+    remoteStatusText.textContent = 'Connecting…';
+
+    peer = new Peer();
+
+    peer.on('open', () => {
+      conn = peer.connect(roomCode, { reliable: true });
+      setupConnectionHandlers();
+    });
+
+    peer.on('error', (err) => {
+      if (err.type === 'peer-unavailable') {
+        showRemoteError("That invite link isn't active anymore. Ask your friend to send a new one.");
+      } else {
+        showRemoteError('Connection error (' + err.type + '). Try again, or check your network.');
+      }
+    });
+  }
+
+  function handleRemoteMessage(msg){
+    if (!msg || !msg.type) return;
+
+    switch (msg.type) {
+      case 'hello':
+        remoteName = msg.name;
+        if (isHost) sendMessage({ type: 'hello-ack', name: localName });
+        beginRemoteGame();
+        break;
+      case 'hello-ack':
+        remoteName = msg.name;
+        beginRemoteGame();
+        break;
+      case 'move':
+        applyRemoteMove(msg.move);
+        break;
+      case 'reset':
+        resetCore();
+        render();
+        updateStatus();
+        break;
+    }
+  }
+
+  function applyRemoteMove(move){
+    const player = current;
+    if (move.type === 'place') tryPlacement(move.index, player, false);
+    else tryMovement(move.from, move.to, player, false);
+  }
+
+  function beginRemoteGame(){
+    if (remoteGameStarted) return;
+    remoteGameStarted = true;
+    localColor = isHost ? 'A' : 'B';
+    botColor = null;
+    resetCore();
+    showPanel('game');
+    render();
+    updateStatus();
+  }
+
+  function handleRemoteDisconnect(){
+    if (settings.mode !== 'remote') return;
+    if (remoteStatusPanel.classList.contains('show')) {
+      showRemoteError('Connection lost. Ask your friend to reload and try again.');
+      return;
+    }
+    if (!gameOver) {
+      gameOver = true;
+      render();
+      winBanner.textContent = 'Connection lost.';
+      statusText.textContent = (remoteName || 'Your opponent') + ' disconnected.';
+      hintText.textContent = 'Choose "Change Setup" to start a new game.';
+    }
+  }
+
+  function teardownConnection(){
+    if (conn) { try { conn.close(); } catch (err) {} conn = null; }
+    if (peer) { try { peer.destroy(); } catch (err) {} peer = null; }
+    remoteGameStarted = false;
+    localColor = null;
+    remoteName = '';
+  }
+
+})();
+</script>
+
+</body>
+</html>
