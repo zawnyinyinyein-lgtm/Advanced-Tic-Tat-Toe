@@ -1,0 +1,5 @@
+# Files that support the Worker itself, not part of the static site.
+wrangler.jsonc
+worker/
+.assetsignore
+README.md

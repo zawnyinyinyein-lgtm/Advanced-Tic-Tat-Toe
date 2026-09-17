@@ -1,0 +1,10 @@
+{
+  "name": "advanced-tic-tat-toe",
+  "compatibility_date": "2026-09-17",
+  "main": "./worker/index.js",
+  "assets": {
+    "directory": "./public/",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}

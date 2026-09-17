@@ -1239,17 +1239,42 @@
   // STUN handles most home/mobile networks. Some networks (strict corporate
   // firewalls, certain mobile carriers) block direct P2P entirely, so a TURN
   // relay is included as a fallback path for the connection to route through.
-  const PEER_CONFIG = {
-    config: {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:openrelay.metered.ca:80' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-      ]
-    }
+  //
+  // We first try Cloudflare's Realtime TURN service via a same-origin
+  // serverless function at /turn-credentials (only works when this site is
+  // deployed on a platform that runs it, e.g. Cloudflare Pages, with the
+  // function configured — see functions/turn-credentials.js). If that isn't
+  // available for any reason, we fall back to a free public relay so remote
+  // play still works everywhere else, including plain GitHub Pages.
+  const FALLBACK_ICE_CONFIG = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:openrelay.metered.ca:80' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+    ]
   };
+
+  function normalizeIceServers(data){
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.iceServers)) return data.iceServers;
+    if (data && data.iceServers && typeof data.iceServers === 'object') return [data.iceServers];
+    return null;
+  }
+
+  async function getIceConfig(){
+    try {
+      const resp = await fetch('/turn-credentials', { cache: 'no-store' });
+      if (!resp.ok) return FALLBACK_ICE_CONFIG;
+      const data = await resp.json();
+      const servers = normalizeIceServers(data);
+      if (!servers || servers.length === 0) return FALLBACK_ICE_CONFIG;
+      return { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }, ...servers] };
+    } catch (err) {
+      return FALLBACK_ICE_CONFIG;
+    }
+  }
 
   const CONNECT_TIMEOUT_MS = 20000;
   let connectTimeoutId = null;
@@ -1285,7 +1310,7 @@
     conn.on('error', () => handleRemoteDisconnect());
   }
 
-  function hostRemoteGame(){
+  async function hostRemoteGame(){
     localName = (nameInput.value || '').trim() || 'Host';
     isHost = true;
     remoteGameStarted = false;
@@ -1293,8 +1318,9 @@
     resetRemoteStatusUI();
     remoteStatusText.textContent = 'Connecting to signaling server…';
 
+    const config = await getIceConfig();
     const roomCode = generateRoomCode();
-    peer = new Peer(roomCode, PEER_CONFIG);
+    peer = new Peer(roomCode, { config });
 
     peer.on('open', (id) => {
       inviteLinkInput.value = buildInviteLink(id);
@@ -1313,7 +1339,7 @@
     });
   }
 
-  function joinRemoteGame(roomCode){
+  async function joinRemoteGame(roomCode){
     localName = (nameInput.value || '').trim() || 'Guest';
     isHost = false;
     remoteGameStarted = false;
@@ -1321,7 +1347,8 @@
     resetRemoteStatusUI();
     remoteStatusText.textContent = 'Connecting…';
 
-    peer = new Peer(PEER_CONFIG);
+    const config = await getIceConfig();
+    peer = new Peer({ config });
 
     peer.on('open', () => {
       conn = peer.connect(roomCode, { reliable: true });
